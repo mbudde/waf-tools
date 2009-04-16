@@ -1,0 +1,10 @@
+
+srcdir = '.'
+blddir = 'build'
+
+def configure(conf):
+    conf.check_tool('inkscape-convert', tooldir='../..')
+    conf.env['INKSCAPEFLAGS'] = '--export-dpi=900'
+
+def build(bld):
+    bld.new_task_gen(source='test.svg')
