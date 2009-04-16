@@ -1,0 +1,14 @@
+
+srcdir = '.'
+blddir = 'build'
+
+def configure(conf):
+    conf.check_tool('txt2tags', tooldir='../..')
+    conf.env['TXT2TAGSFLAGS'] = '--encoding utf8'
+
+def build(bld):
+    bld.new_task_gen(
+        features='txt2tags',
+        target='xhtml',         # target can be one of the following:
+        ext_out='.html',        # html, xhtml, tex, sgml, man, mgp, pm6, txt
+        source='test.t2t')
