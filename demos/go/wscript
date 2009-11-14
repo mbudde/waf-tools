@@ -1,0 +1,29 @@
+
+VERSION='0.0.1'
+APPNAME='go_demo'
+srcdir = '.'
+blddir = 'build'
+
+
+tdir = '../../'
+
+def set_options(opt):
+    opt.tool_options('go', tooldir=tdir)
+
+def configure(conf):
+    conf.check_tool('go', tooldir=tdir)
+
+    # Only list files whose formatting differs from gofmt
+    conf.env['GOFMTFLAGS'] = '-l'
+
+def build(bld):
+    bld.add_subdirs('bar foo')
+
+    bld.new_task_gen(
+        features = 'go goprogram',
+        source = 'main.go main_two.go',
+        target = 'main',
+        usepkg_local = 'foo',
+        format = True # run sources through gofmt before compiling
+    )
+
