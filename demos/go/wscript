@@ -12,6 +12,7 @@ def set_options(opt):
 
 def configure(conf):
     conf.check_tool('go', tooldir=tdir)
+    conf.env['PREFIX'] = '/usr'
 
 def build(bld):
     bld.add_subdirs('bar foo')
@@ -23,5 +24,5 @@ def build(bld):
         usepkg_local = 'foo',
         format = True, # run sources through gofmt before compiling
         # format_list = True # only list files whose formatting differs
+        install_path = '${PREFIX}/sbin' # defaults to ${PREFIX}/bin
     )
-
