@@ -83,7 +83,7 @@ def find_gc(conf):
     conf.find_program(O+'g', var='GC', mandatory=True)
     conf.find_program(O+'l', var='LD', mandatory=True)
     conf.find_program('gopack', var='GOPACK', mandatory=True)
-    conf.find_program('gofmt', var='GOFMT')
+    conf.find_program('gofmt', var='GOFMT', mandatory=True)
     conf.find_program('gotest', var='GOTEST')
     conf.find_program('godoc', var='GODOC')
     conf.find_program('cgo', var='CGO')
