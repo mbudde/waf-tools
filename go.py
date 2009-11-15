@@ -41,12 +41,20 @@ EXT_GO = ['.go']
 def init_go(self):
     Utils.def_attrs(
         self,
-        compilation_task=None,
-        link_task=None,
-        pack_task=None,
-        format_task=None,
-        usepkg_local=''
+        compilation_task = None,
+        link_task        = None,
+        pack_task        = None,
+        format_task      = None,
+        usepkg_local     = '',
+        _format          = False
     )
+    opt = Options.options
+    if opt.gofmt != False or getattr(self, 'format', False) \
+                          or getattr(self, 'format_list', False):
+        self._format = True
+    if (opt.gofmt == 'list' or getattr(self, 'format_list', None)) \
+       and not opt.gofmt == 'format':
+        self.env.append_unique('GOFMTFLAGS', '-l')
 
 @feature('go')
 @after('apply_go_link', 'apply_go_pack')
@@ -68,23 +76,25 @@ def apply_go_pkgs(self):
         # Post the task_gen so it can create its tasks, which we'll need
         tg.post()
 
-        if getattr(tg, 'pack_task', None):
+        tgtask = getattr(tg, 'pack_task', None)
+        if not tgtask: tgtask = getattr(tg, 'compilation_task', None)
+        if tgtask:
             # Add link flags
-            path = tg.pack_task.outputs[0].bld_dir(tg.env)
+            path = tgtask.outputs[0].bld_dir(tg.env)
             self.env.append_unique('GOFLAGS', self.env.GOPATH_ST % path)
-            self.env.append_unique('GOLDFLAGS', self.env.GOPKGPATH_ST % path)
+            #self.env.append_unique('GOLDFLAGS', self.env.GOPKGPATH_ST % path)
 
             task = getattr(self, 'link_task', None)
             if not task: task = getattr(self, 'pack_task', None)
             if task:
                 # Set run order
                 self.compilation_task.set_run_after(tg.compilation_task)
-                task.set_run_after(tg.pack_task)
+                if tgtask != tg.compilation_task:
+                    task.set_run_after(tgtask)
 
                 # Add dependencies
                 dep_nodes = getattr(task, 'dep_nodes', [])
-                task.dep_nodes = dep_nodes + tg.pack_task.outputs
-
+                task.dep_nodes = dep_nodes + tgtask.outputs
 
 @feature('goprogram')
 @after('apply_core')
@@ -118,7 +128,7 @@ def go_hook(self, node):
         )
     else:
         self.compilation_task.inputs.append(node)
-    if Options.options.gofmt == True or getattr(self, 'format', False):
+    if self._format == True:
         if not self.format_task:
             self.format_task = self.create_task('goformat', [node], [])
         else:
@@ -165,6 +175,8 @@ def common_flags_gc(conf):
     v['GOPACK_TGT_F']   = ''
     v['GOPACKFLAGS']  = 'grc'
 
+    v['GOFMTFLAGS']   = []
+
 @conftest
 def go_platform_flags(conf):
     v = conf.env
@@ -179,8 +191,10 @@ def detect(conf):
     conf.go_platform_flags()
 
 def set_options(opt):
-    opt.add_option('--gofmt', action='store_true', default=False,
-                   help='Run source code through gofmt before compiling')
+    opt.add_option('--gofmt', action='store_const', const='format', default=False,
+                   help='run source code through gofmt before compiling')
+    opt.add_option('--gofmt-list', action='store_const', const='list', dest='gofmt',
+                   help='list files whose formatting differs from gofmt\'s')
 
 Task.simple_task_type(
     'goformat',
