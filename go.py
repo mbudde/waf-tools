@@ -4,14 +4,131 @@
 # Written by Michael Budde <mbudde@gmail.com> (2009).
 #
 
-import os
+import os, os.path, re
+from sys import exit
+
 import Task, Utils, Options
-from Configure import conftest
-from TaskGen import feature, before, after, extension
+from Configure import conftest, conf
+from TaskGen import taskgen, feature, before, after, extension
 from Logs import debug, error
 
 EXT_GO = ['.go']
 
+
+class go_parser(object):
+
+    def __init__(self, tg):
+        self.tg = tg
+
+        self.re_package = re.compile(r"package\s+(?P<pkg>\S+)\s+", re.U | re.M)
+        self.re_import = re.compile(
+            r"""
+            import \s+
+            ( ( \. | \S+ ) \s+ )?
+            [`"](?P<inc>[^`"\n]*)[`"] \s+
+            """,
+            re.U | re.M | re.X)
+        self.re_import_paren = re.compile(
+            r"""
+            import \s+ \( ([^\)]*) \)
+            """,
+            re.U | re.M | re.X | re.S )
+        self.re_import_in_paren = re.compile(
+            r"""
+            ( ( \. | [^`"]+ ) \s+ )?
+            [`"](?P<inc>[^`"\n]*)[`"] \s*
+            ;?
+            """,
+            re.U | re.M | re.X )
+
+    def start(self, nodes):
+        self.packages = {}
+        self.deps = {}
+        self.parse_queue = nodes
+        while self.parse_queue:
+            n = self.parse_queue.pop(0)
+            self._iter(n)
+        for pkg, deps in self.deps.iteritems():
+            self.deps[pkg] = [x for x in deps if x in self.packages]
+
+    def _iter(self, node):
+        path = node.abspath(self.tg.env)
+        code = Utils.cmd_output([self.tg.env['GOFMT'], '-comments=false', path])
+
+        package = self._find_package(code)
+        if package not in self.packages:
+            self.packages[package] = []
+        self.packages[package].append(node)
+
+        imports = self._find_imports(code)
+        imports = [os.path.basename(i) for i in imports]
+        if package not in self.deps:
+            self.deps[package] = []
+        self.deps[package] += imports
+
+    def _find_package(self, code):
+        return self.re_package.search(code).group('pkg')
+
+    def _find_imports(self, code):
+        imports = []
+        iter = self.re_import.finditer(code)
+        for m in iter:
+            imports.append(m.group('inc'))
+        iter = self.re_import_paren.finditer(code)
+        for m in iter:
+            iter2 = self.re_import_in_paren.finditer(m.group(1))
+            for m2 in iter2:
+                imports.append(m2.group('inc'))
+        return imports
+
+class GoPackage(object):
+
+    def __init__(self, name, nodes=[], uselib_local=[]):
+        self.name = name
+        self.target = name
+        self.inputs = nodes 
+        self.build_task = None
+        self.link_task = None
+        self.pack_task = None
+        self.uselib = []
+        self.uselib_local = uselib_local
+
+    #@property
+    #def uselib_local(self):
+        #return self._uselib_local
+
+    #@uselib_local.setter(self, val):
+        #self._uselib_local = val
+
+    #@property
+    #def build_task(self):
+        #return self._build_task
+
+    #@build_task.setter
+    #def build_task(self, task):
+        #self._build_task = task
+        #task.set_inputs(self.inputs)
+        #task.set_outputs(self.target + self.env['GOOBJEXT'])
+
+    #@property
+    #def link_task(self):
+        #return self._link_task
+
+    #@link_task.setter
+    #def link_task(self, task):
+        #self._link = task
+        #task.set_inputs(self.build_task.outputs)
+        #task.set_outputs(self.target)
+
+    #@property
+    #def pack_task(self):
+        #return self._pack_task
+
+    #@pack_task.setter
+    #def pack_task(self, task):
+        #self._pack_task = task
+        #task.set_inputs(self.build_task.outputs)
+        #task.set_outputs(self.target)
 
 ###############################
 # Options
@@ -63,8 +180,7 @@ def go_vars(conf):
 
     if fail:
         error('Set in environment or in wscript')
-        import sys
-        sys.exit(1)
+        exit(1)
 
     arch_dict = {
         'arm':   '5',
@@ -129,21 +245,11 @@ def detect(conf):
 def init_go(self):
     Utils.def_attrs(
         self,
-        compilation_task = None,
-        link_task        = None,
-        pack_task        = None,
-        format_task      = None,
-        usepkg           = '',
-        usepkg_local     = '',
-        _format          = False
+        packages          = {},
+        deps              = {},
+        format_task       = None,
+        _format           = False
     )
-    # Set target if it is not already set
-    if not self.target:
-        source = self.to_list(self.source)[0]
-        node = self.path.find_resource(source)
-        self.target = node.file_base()
-        if not self.name:
-            self.name = self.target
 
     opt = Options.options
     if opt.gofmt != False or getattr(self, 'format', False) \
@@ -153,16 +259,31 @@ def init_go(self):
        and not opt.gofmt == 'format':
         self.env.append_unique('GOFMTFLAGS', '-l')
 
-@feature('goprogram')
-@before('apply_core')
+@feature('go')
 @after('init_go')
+@before('apply_core')
+def apply_go_scan(self):
+    sources = self.to_list(self.source)
+    inputs = [self.path.find_resource(s) for s in sources]
+    gp = go_parser(self)
+    gp.start(inputs)
+    debug('found packages: %s' % ' '.join(gp.packages.keys()))
+    debug('found dependencies: %s' % gp.deps)
+    self.deps = gp.deps
+    for pkg, nodes in gp.packages.iteritems():
+        gopkg = GoPackage(pkg, nodes)
+        self.packages[pkg] = gopkg
+
+@feature('goprogram')
+@after('init_go')
+@before('apply_core')
 def var_target_goprogram(self):
     self.default_install_path = '${PREFIX}/bin'
     self.default_chmod = 0755
 
 @feature('gopkg')
-@before('apply_core')
 @after('init_go')
+@before('apply_core')
 def var_target_gopkg(self):
     import os.path, os
     self.default_install_path = os.path.join(self.env['GOROOT'], 'pkg',
@@ -176,9 +297,9 @@ def default_go_install(self):
     if self.install_path and task:
         self.bld.install_files(self.install_path, task.outputs[0], env=self.env, chmod=self.chmod)
 
-@feature('go')
-@after('apply_go_link', 'apply_go_pack')
-def apply_go_pkgs(self):
+#@feature('go')
+#@after('apply_go_link', 'apply_go_pack')
+def apply_go_pkgs2(self):
     """Add dependencies on packages the task depends on."""
     names = self.to_list(self.usepkg_local)
     seen = set([])
@@ -222,38 +343,54 @@ def apply_go_pkgs(self):
             self.env.append_unique('GOFLAGS', self.env.GOPATH_ST %
                                    self.env['PKGPATH_'+pkg])
 
+@feature('go')
+@after('apply_go_link', 'apply_go_pack')
+def apply_go_deps(self):
+    for pkg, deps in self.deps.iteritems():
+        for dep in deps: 
+            task = self.packages[dep].build_task
+            path = task.outputs[0].bld_dir(task.env)
+            self.env.append_unique('GOFLAGS', self.env['GOPATH_ST'] % path)
+
+@feature('go')
+@after('apply_core')
+def apply_go_build(self):
+    for pkg in self.packages.itervalues():
+        output = self.path.find_or_declare(pkg.target + self.env['GOOBJEXT'])
+        pkg.build_task = self.create_task('gocompile', pkg.inputs, output)
+
+    for pkg, deps in self.deps.iteritems():
+        for dep in deps:
+            self.packages[pkg].build_task.set_run_after(self.packages[dep].build_task)
+
 @feature('goprogram')
 @after('apply_core')
 def apply_go_link(self):
-    if not self.compilation_task:
-        return
-    self.link_task = self.create_task(
-        'golink',
-        self.compilation_task.outputs,
-        self.path.find_or_declare(self.target)
-    )
+    main = self.packages['main']
+    if not main:
+        error('Could not find a `main\' package')
+        exit(1)
+    main
+    output = self.path.find_or_declare(main.target)
+    main.link_task = self.create_task('golink', main.build_task.outputs, output)
 
 @feature('gopkg')
 @after('apply_core')
 def apply_go_pack(self):
-    if not self.compilation_task:
-        return
-    self.pack_task = self.create_task(
-        'gopack',
-        self.compilation_task.outputs,
-        self.path.find_or_declare(self.target + self.env['GOPKGEXT'])
-    )
+    for pkg in self.packages.itervalues():
+        output = self.path.find_or_declare(pkg.target + self.env['GOPKGEXT'])
+        pkg.pack_task = self.create_task('gopack', pkg.build_task.outputs, output)
 
 @extension(EXT_GO)
 def go_hook(self, node):
-    if not self.compilation_task:
-        self.compilation_task = self.create_task(
-            'gocompile',
-            [node],
-            self.path.find_or_declare(self.target + self.env['GOOBJEXT'])
-        )
-    else:
-        self.compilation_task.set_inputs(node)
+    #if not self.compilation_task:
+        #self.compilation_task = self.create_task(
+            #'gocompile',
+            #[node],
+            #self.path.find_or_declare(self.target + self.env['GOOBJEXT'])
+        #)
+    #else:
+        #self.compilation_task.set_inputs(node)
     if self._format == True:
         if not self.format_task:
             self.format_task = self.create_task('goformat', [node], [])

@@ -19,15 +19,18 @@ def configure(conf):
     conf.env['PKGPATH_test'] = '/path/to/package/test'
 
 def build(bld):
-    bld.add_subdirs('bar foo')
+    obj = bld.new_task_gen(features='go goprogram', target='main')
+    obj.find_sources_in_dirs('. foo bar', exts=['.go'])
 
-    bld.new_task_gen(
-        features = 'go goprogram',
-        source = 'main.go main_two.go',
-        target = 'main',
-        # usepkg = 'pkgname',
-        usepkg_local = 'foo',
-        format = True,  # run sources through gofmt before compiling
-        # format_list = True  # only list files whose formatting differs
-        install_path = '${PREFIX}/sbin' # defaults to ${PREFIX}/bin
-    )
+    #bld.add_subdirs('bar foo')
+
+    #bld.new_task_gen(
+        #features = 'go goprogram',
+        #source = 'main.go main_two.go',
+        #target = 'main',
+        ## usepkg = 'pkgname',
+        #usepkg_local = 'foo',
+        #format = True,  # run sources through gofmt before compiling
+        ## format_list = True  # only list files whose formatting differs
+        #install_path = '${PREFIX}/sbin' # defaults to ${PREFIX}/bin
+    #)
