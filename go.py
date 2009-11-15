@@ -137,6 +137,14 @@ def init_go(self):
         usepkg_local     = '',
         _format          = False
     )
+    # Set target if it is not already set
+    if not self.target:
+        source = self.to_list(self.source)[0]
+        node = self.path.find_resource(source)
+        self.target = node.file_base()
+        if not self.name:
+            self.name = self.target
+
     opt = Options.options
     if opt.gofmt != False or getattr(self, 'format', False) \
                           or getattr(self, 'format_list', False):
@@ -245,13 +253,12 @@ def go_hook(self, node):
             self.path.find_or_declare(self.target + self.env['GOOBJEXT'])
         )
     else:
-        self.compilation_task.inputs.append(node)
+        self.compilation_task.set_inputs(node)
     if self._format == True:
         if not self.format_task:
             self.format_task = self.create_task('goformat', [node], [])
         else:
-            self.format_task.inputs.append(node)
-        
+            self.format_task.set_inputs(node)
 
 
 Task.simple_task_type(
