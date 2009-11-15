@@ -1,7 +1,7 @@
 
 def build(bld):
     bld.new_task_gen(
-        features = 'go gopkg',
+        features = 'go gopkg', # gopkg causes bar.a to be created
         source = 'bar.go',
         target = 'bar',
     )

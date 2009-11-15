@@ -14,6 +14,10 @@ def configure(conf):
     conf.check_tool('go', tooldir=tdir)
     conf.env['PREFIX'] = '/usr'
 
+    # Set PKGPATH_pkgname if you depend on a package not in installed in
+    # $GOROOT/pkg/$GOOS_$GOARCH. Also set usepkg = 'pkgname' on the task.
+    conf.env['PKGPATH_test'] = '/path/to/package/test'
+
 def build(bld):
     bld.add_subdirs('bar foo')
 
@@ -21,8 +25,9 @@ def build(bld):
         features = 'go goprogram',
         source = 'main.go main_two.go',
         target = 'main',
+        # usepkg = 'pkgname',
         usepkg_local = 'foo',
-        format = True, # run sources through gofmt before compiling
-        # format_list = True # only list files whose formatting differs
+        format = True,  # run sources through gofmt before compiling
+        # format_list = True  # only list files whose formatting differs
         install_path = '${PREFIX}/sbin' # defaults to ${PREFIX}/bin
     )

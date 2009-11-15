@@ -133,6 +133,7 @@ def init_go(self):
         link_task        = None,
         pack_task        = None,
         format_task      = None,
+        usepkg           = '',
         usepkg_local     = '',
         _format          = False
     )
@@ -163,10 +164,7 @@ def var_target_gopkg(self):
 @feature('goprogram', 'gopkg')
 @after('apply_go_link', 'apply_go_pack')
 def default_go_install(self):
-    """you may kill this method to inject your own installation for the first element
-    any other install should only process its own nodes and not those from the others"""
-    task = getattr(self, 'pack_task', None)
-    if not task: task = getattr(self, 'link_task', None)
+    task = getattr(self, 'pack_task', None) or getattr(self, 'link_task', None)
     if self.install_path and task:
         self.bld.install_files(self.install_path, task.outputs[0], env=self.env, chmod=self.chmod)
 
@@ -198,17 +196,23 @@ def apply_go_pkgs(self):
         self.env.append_unique('GOFLAGS', self.env.GOPATH_ST % path)
         #self.env.append_unique('GOLDFLAGS', self.env.GOPKGPATH_ST % path)
 
-        task = getattr(self, 'link_task', None)
-        if not task: task = getattr(self, 'pack_task', None)
-        if task:
-            # Set run order
-            self.compilation_task.set_run_after(tg.compilation_task)
-            if tgtask != tg.compilation_task:
-                task.set_run_after(tgtask)
+        task = getattr(self, 'link_task', None) or getattr(self, 'pack_task', None)
+        if not task:
+            return
+        # Set run order
+        self.compilation_task.set_run_after(tg.compilation_task)
+        if tgtask != tg.compilation_task:
+            task.set_run_after(tgtask)
 
-            # Add dependencies
-            dep_nodes = getattr(task, 'dep_nodes', [])
-            task.dep_nodes = dep_nodes + tgtask.outputs
+        # Add dependencies
+        dep_nodes = getattr(task, 'dep_nodes', [])
+        task.dep_nodes = dep_nodes + tgtask.outputs
+
+    pkgs = self.to_list(self.usepkg)
+    for pkg in pkgs:
+        if 'PKGPATH_'+pkg in self.env:
+            self.env.append_unique('GOFLAGS', self.env.GOPATH_ST %
+                                   self.env['PKGPATH_'+pkg])
 
 @feature('goprogram')
 @after('apply_core')
