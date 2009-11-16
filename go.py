@@ -53,7 +53,11 @@ class go_parser(object):
 
     def _iter(self, node):
         path = node.abspath(self.tg.env)
-        code = Utils.cmd_output([self.tg.env['GOFMT'], '-comments=false', path])
+        try:
+            code = Utils.cmd_output(' '.join([self.tg.env['GOFMT'], '-comments=false', path]))
+        except ValueError, e:
+            error(str(e))
+            exit(1)
 
         package = self._find_package(code)
         if package not in self.packages:
