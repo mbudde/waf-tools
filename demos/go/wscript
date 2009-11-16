@@ -1,4 +1,3 @@
-
 VERSION='0.0.1'
 APPNAME='go_demo'
 srcdir = '.'
@@ -16,7 +15,7 @@ def configure(conf):
 
     # Set PKGPATH_pkgname if you depend on a package not in installed in
     # $GOROOT/pkg/$GOOS_$GOARCH. Also set usepkg = 'pkgname' on the task.
-    conf.env['PKGPATH_test'] = '/path/to/package/test'
+    conf.env['PKGPATH_usefulpkg'] = '/path/to/usefulpkg/'
 
 def build(bld):
     bld.add_subdirs('bar')
@@ -24,10 +23,10 @@ def build(bld):
     obj = bld.new_task_gen(
         features = 'go goprogram',
         target = 'test',
-        #usepkg = 'pkgname',
+        #usepkg = 'usefulpkg',
         usepkg_local = 'bar',
         #format = True,  # run sources through gofmt before compiling
-        ## format_list = True  # only list files whose formatting differs
+        #format_list = True  # only list files whose formatting differs
         #install_path = '${PREFIX}/sbin' # defaults to ${PREFIX}/bin
     )
     obj.find_sources_in_dirs('. foo', exts=['.go'])
