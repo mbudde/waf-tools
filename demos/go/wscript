@@ -24,18 +24,10 @@ def build(bld):
     obj = bld.new_task_gen(
         features = 'go goprogram',
         target = 'test',
-        usepkg_local = 'bar'
-    )
-    obj.find_sources_in_dirs('. foo', exts=['.go'])
-
-
-    #bld.new_task_gen(
-        #features = 'go goprogram',
-        #source = 'main.go main_two.go',
-        #target = 'main',
-        ## usepkg = 'pkgname',
-        #usepkg_local = 'foo',
+        #usepkg = 'pkgname',
+        usepkg_local = 'bar',
         #format = True,  # run sources through gofmt before compiling
         ## format_list = True  # only list files whose formatting differs
         #install_path = '${PREFIX}/sbin' # defaults to ${PREFIX}/bin
-    #)
+    )
+    obj.find_sources_in_dirs('. foo', exts=['.go'])
