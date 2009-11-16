@@ -389,8 +389,15 @@ def apply_go_usepkg(self):
 @feature('goprogram', 'gopkg')
 @after('apply_go_link', 'apply_go_pack')
 def default_go_install(self):
-    if self.install_path and task:
-        self.bld.install_files(self.install_path, task.outputs[0], env=self.env, chmod=self.chmod)
+    for pkg in self.packages.itervalues():
+        task = pkg.link_task or pkg.pack_task
+        if self.install_path and task:
+            self.bld.install_files(
+                self.install_path,
+                task.outputs[0],
+                env=self.env,
+                chmod=self.chmod
+            )
 
 
 Task.simple_task_type(
