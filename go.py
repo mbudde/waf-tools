@@ -303,6 +303,7 @@ def apply_go_pack(self):
 @feature('go')
 @after('apply_go_link', 'apply_go_pack')
 def apply_go_deps(self):
+    """Add flags and build order constraints to tasks within this task_gen"""
     for pkg, deps in self.deps.iteritems():
         for dep in deps: 
             task = self.packages[dep].build_task
@@ -312,7 +313,9 @@ def apply_go_deps(self):
 @feature('go')
 @after('apply_go_deps')
 def apply_go_usepkg(self):
-    """Add dependencies on packages the task depends on."""
+    """Add flags and build order constraints on packages listed in usepkg and
+    usepkg_local properties.
+    """
     names = self.to_list(self.usepkg_local)
     seen = set([])
     tmp = Utils.deque(names) # consume a copy of the list of names
@@ -330,11 +333,11 @@ def apply_go_usepkg(self):
         tg.post()
 
         if pkg_name not in tg.packages:
-            error('task_gen %r does not build a package %s' % (tg, pkg_name))
+            error('task_gen %r does not build the package %s' % (tg, pkg_name))
             exit(1)
         dep_pkg = tg.packages[pkg_name]
 
-        # Add link flags
+        # Add build flags
         path = dep_pkg.build_task.outputs[0].bld_dir(tg.env)
         self.env.append_unique('GOFLAGS', self.env['GOPATH_ST'] % path)
 
@@ -346,6 +349,7 @@ def apply_go_usepkg(self):
             dep_nodes = getattr(pkg.build_task, 'dep_nodes', [])
             pkg.build_task.dep_nodes = dep_nodes + dep_pkg.build_task.outputs
 
+    # Add usepkg flags
     pkgs = self.to_list(self.usepkg)
     for pkg in pkgs:
         if 'PKGPATH_'+pkg in self.env:
