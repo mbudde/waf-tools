@@ -15,7 +15,7 @@ from Logs import debug, error
 EXT_GO = ['.go']
 
 
-class go_parser(object):
+class GoParser(object):
 
     def __init__(self, tg):
         self.tg = tg
@@ -85,6 +85,7 @@ class go_parser(object):
                 imports.append(m2.group('inc'))
         return imports
 
+
 class GoPackage(object):
 
     def __init__(self, name, nodes=[], uselib_local=[]):
@@ -96,43 +97,6 @@ class GoPackage(object):
         self.pack_task = None
         self.uselib = []
         self.uselib_local = uselib_local
-
-    #@property
-    #def uselib_local(self):
-        #return self._uselib_local
-
-    #@uselib_local.setter(self, val):
-        #self._uselib_local = val
-
-    #@property
-    #def build_task(self):
-        #return self._build_task
-
-    #@build_task.setter
-    #def build_task(self, task):
-        #self._build_task = task
-        #task.set_inputs(self.inputs)
-        #task.set_outputs(self.target + self.env['GOOBJEXT'])
-
-    #@property
-    #def link_task(self):
-        #return self._link_task
-
-    #@link_task.setter
-    #def link_task(self, task):
-        #self._link = task
-        #task.set_inputs(self.build_task.outputs)
-        #task.set_outputs(self.target)
-
-    #@property
-    #def pack_task(self):
-        #return self._pack_task
-
-    #@pack_task.setter
-    #def pack_task(self, task):
-        #self._pack_task = task
-        #task.set_inputs(self.build_task.outputs)
-        #task.set_outputs(self.target)
 
 ###############################
 # Options
@@ -271,7 +235,7 @@ def init_go(self):
 def apply_go_scan(self):
     sources = self.to_list(self.source)
     inputs = [self.path.find_resource(s) for s in sources]
-    gp = go_parser(self)
+    gp = GoParser(self)
     gp.start(inputs)
     debug('found packages: %s' % ' '.join(gp.packages.keys()))
     debug('found dependencies: %s' % gp.deps)
