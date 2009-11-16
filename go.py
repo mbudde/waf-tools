@@ -337,7 +337,6 @@ def apply_go_usepkg(self):
         # Add link flags
         path = dep_pkg.build_task.outputs[0].bld_dir(tg.env)
         self.env.append_unique('GOFLAGS', self.env['GOPATH_ST'] % path)
-        #self.env.append_unique('GOLDFLAGS', self.env.GOPKGPATH_ST % path)
 
         # Set run order
         for pkg in self.packages.itervalues():
@@ -350,8 +349,9 @@ def apply_go_usepkg(self):
     pkgs = self.to_list(self.usepkg)
     for pkg in pkgs:
         if 'PKGPATH_'+pkg in self.env:
-            self.env.append_unique('GOFLAGS', self.env.GOPATH_ST %
-                                   self.env['PKGPATH_'+pkg])
+            path = self.env['PKGPATH_'+pkg]
+            self.env.append_unique('GOFLAGS', self.env.GOPATH_ST % path)
+            self.env.append_unique('GOLDFLAGS', self.env.GOPKGPATH_ST % path)
 
 
 @feature('goprogram', 'gopkg')
